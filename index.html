@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DWTS Season 35 Pyramid</title>
+<style>
+:root{--pink:#e91e78;--dark:#231f20;--gold:#c9a24a;--bg:#fff8fc;--card:#fff;--line:#ead8e3}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(#fff8fc,#fff);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--dark)}
+.wrap{max-width:1050px;margin:auto;padding:22px 14px 40px}
+h1{text-align:center;margin:0;font-size:clamp(25px,6vw,42px);letter-spacing:-1px}
+.subtitle{text-align:center;color:#766a72;margin:5px 0 18px}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
+button,.filelabel{border:1px solid var(--line);background:white;border-radius:12px;padding:11px 14px;font-weight:700;cursor:pointer}
+button.active{background:#ffe2f0;border-color:var(--pink)}
+.filelabel input{display:none}
+.pyramid{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0 auto 22px}
+.row{display:flex;justify-content:center;gap:8px;width:100%;min-height:92px}
+.slot{width:88px;height:90px;border:2px dashed #dec8d4;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;position:relative}
+.slot.over{border-color:var(--pink);background:#fff0f7}
+.slot .rank{position:absolute;top:3px;left:6px;font-size:10px;font-weight:900;color:#9b7b8c}
+.person{width:78px;height:78px;border:1px solid var(--line);border-radius:12px;background:white;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;touch-action:none;box-shadow:0 2px 6px #0000000c}
+.person.selected{outline:3px solid var(--pink)}
+.photo{width:44px;height:44px;border-radius:50%;background:#f4dce9;display:flex;align-items:center;justify-content:center;font-weight:900;color:#7b3d5b;overflow:hidden}
+.photo img{width:100%;height:100%;object-fit:cover}
+.name{font-size:9px;font-weight:800;text-align:center;line-height:1.05;margin-top:3px;max-width:72px}
+.poolbox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px}
+.pooltitle{font-weight:900;margin-bottom:9px}
+.pool{display:flex;flex-wrap:wrap;gap:8px;min-height:90px}
+.hint{text-align:center;font-size:12px;color:#806f79;margin:10px 0 0}
+#photoInput{display:none}
+@media(max-width:600px){.slot{width:70px;height:78px}.person{width:62px;height:68px}.photo{width:38px;height:38px}.name{max-width:58px;font-size:8px}.row{gap:5px}.wrap{padding-left:8px;padding-right:8px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>DWTS Season 35 Pyramid</h1>
+<div class="subtitle">Top = highest ranked • Bottom = lowest ranked</div>
+
+<div class="controls">
+<button class="active" data-board="me">My Pyramid</button>
+<button data-board="friend">Friend's Pyramid</button>
+<button id="reset">Reset</button>
+<button id="save">Save / Download</button>
+<label class="filelabel">Add photos<input id="photoInput" type="file" accept="image/*" multiple></label>
+</div>
+
+<div id="pyramid" class="pyramid"></div>
+
+<div class="poolbox">
+<div class="pooltitle">Contestants to place</div>
+<div id="pool" class="pool"></div>
+<div class="hint">Computer: drag a person into a spot. Phone: tap a person, then tap a spot.</div>
+</div>
+</div>
+
+<script>
+const contestants=[
+"Tatyana Ali","Tyler Cameron","Giada De Laurentiis","Jenna Dewan",
+"Ezra Frech","Amber Glenn","Taylor Hanson","Maura Higgins",
+"Conner Leavitt","Ciara Miller","Sarah Jane Nader","Jackson Olson",
+"Guillermo Rodriguez","Harry Shum Jr.","Julia Stiles","Connor Wood"
+];
+const rows=[1,2,3,4,5,1]; // 16 spots
+let board="me", selected=null, dragPerson=null;
+const state={me:Array(16).fill(null),friend:Array(16).fill(null)};
+const photos={};
+
+const key=n=>n.toLowerCase().replace(/[^a-z0-9]+/g,"_");
+function initials(n){return n.split(" ").map(x=>x[0]).slice(0,2).join("").toUpperCase()}
+function makePerson(name){
+ const d=document.createElement("div"); d.className="person"; d.draggable=true; d.dataset.name=name;
+ const photo=photos[key(name)];
+ d.innerHTML=`<div class="photo">${photo?`<img src="${photo}" alt="">`:initials(name)}</div><div class="name">${name}</div>`;
+ d.addEventListener("click",()=>{selected=name; document.querySelectorAll(".person").forEach(x=>x.classList.remove("selected")); d.classList.add("selected")});
+ d.addEventListener("dragstart",e=>{dragPerson=name;e.dataTransfer.setData("text/plain",name)});
+ return d;
+}
+function render(){
+ const p=document.getElementById("pyramid"); p.innerHTML=""; let idx=0;
+ for(const count of rows){
+  const row=document.createElement("div"); row.className="row";
+  for(let j=0;j<count;j++){
+   const slot=document.createElement("div"); slot.className="slot"; slot.dataset.index=idx;
+   slot.innerHTML=`<span class="rank">#${idx+1}</span>`;
+   const name=state[board][idx];
+   if(name) slot.appendChild(makePerson(name));
+   slot.addEventListener("dragover",e=>{e.preventDefault();slot.classList.add("over")});
+   slot.addEventListener("dragleave",()=>slot.classList.remove("over"));
+   slot.addEventListener("drop",e=>{e.preventDefault();slot.classList.remove("over");place(dragPerson||e.dataTransfer.getData("text/plain"),idx)});
+   slot.addEventListener("click",()=>{if(selected)place(selected,idx)});
+   row.appendChild(slot); idx++;
+  }
+  p.appendChild(row);
+ }
+ const placed=new Set(state[board].filter(Boolean));
+ const pool=document.getElementById("pool"); pool.innerHTML="";
+ contestants.filter(n=>!placed.has(n)).forEach(n=>pool.appendChild(makePerson(n)));
+}
+function place(name,idx){
+ if(!name)return;
+ const arr=state[board], old=arr.indexOf(name);
+ if(old>=0)arr[old]=null;
+ const occupant=arr[idx];
+ if(occupant && occupant!==name && old>=0) arr[old]=occupant;
+ arr[idx]=name; selected=null; render(); persist();
+}
+function persist(){localStorage.setItem("dwts-pyramid",JSON.stringify({state,photos}))}
+function load(){try{const x=JSON.parse(localStorage.getItem("dwts-pyramid"));if(x){Object.assign(state,x.state||{});Object.assign(photos,x.photos||{})}}catch(e){}}
+document.querySelectorAll("[data-board]").forEach(b=>b.addEventListener("click",()=>{board=b.dataset.board;document.querySelectorAll("[data-board]").forEach(x=>x.classList.remove("active"));b.classList.add("active");selected=null;render()}));
+document.getElementById("reset").addEventListener("click",()=>{if(confirm("Reset this pyramid?")){state[board]=Array(16).fill(null);persist();render()}});
+document.getElementById("save").addEventListener("click",()=>{
+ const blob=new Blob([JSON.stringify({state,photos},null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="dwts-pyramid-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+});
+document.getElementById("photoInput").addEventListener("change",async e=>{
+ for(const f of e.target.files){
+  const base=f.name.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ");
+  const match=contestants.find(n=>n.toLowerCase()===base.toLowerCase());
+  if(match){photos[key(match)]=await readFile(f)}
+ }
+ persist();render();e.target.value="";
+});
+function readFile(f){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f)})}
+load();render();
+</script>
+</body>
+</html>
